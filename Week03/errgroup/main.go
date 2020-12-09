@@ -2,61 +2,53 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"log"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"golang.org/x/sync/errgroup"
 )
 
 func main() {
+	g, ctx := errgroup.WithContext(context.Background())
 
-	http.HandleFunc("/", handler)
-
-	// 启动web服务，监听9090端口
-	err := http.ListenAndServe("127.0.0.1:8080", nil)
-	if err != nil {
-		log.Fatal("ListenAndServe error: ", err)
-	}
-}
-
-// w表示response对象，r表示request对象
-func handler(w http.ResponseWriter, r *http.Request) {
-	results, err := searching(context.Background(), []string{"golang"})
-	if err != nil {
-		fmt.Fprintln(w, err)
-	} else {
-		fmt.Fprintln(w, results)
-	}
-}
-
-// Result 关键字查找结果
-type Result struct {
-	Data string
-	Hot  string
-}
-
-func searching(ctx context.Context, keywords []string) ([]Result, error) {
-	g, ctx := errgroup.WithContext(ctx)
-	var collection []Result
-	for _, keyword := range keywords {
-		query := keyword
-		g.Go(func() error {
-			res, err := google(query)
-			if err != nil {
-				return err
-			}
-			collection = append(collection, *res)
-			return nil
+	g.Go(func() error {
+		http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprintln(w, "Hello")
 		})
-	}
+		// 启动web服务，监听9090端口
+		err := http.ListenAndServe("127.0.0.1:8080", nil)
+		if err != nil {
+			return fmt.Errorf("ListenAndServe:  %v", err)
+		}
+		return nil
+	})
+
+	g.Go(func() error {
+		err := ListenSignal(ctx)
+		if err != nil {
+			return err
+		}
+		return nil
+	})
+
 	if err := g.Wait(); err != nil {
-		log.Print(err)
-		return nil, err
+		fmt.Printf("error group: %v", err.Error())
 	}
-	return collection, nil
+
 }
 
-func google(keyword string) (*Result, error) {
-	return nil, fmt.Errorf("google failed：%s", keyword)
+// ListenSignal 监听信号
+func ListenSignal(ctx context.Context) error {
+	ch := make(chan os.Signal)
+	signal.Notify(ch, syscall.SIGKILL, syscall.SIGQUIT)
+	select {
+	case <-ch:
+		return errors.New("receive signal")
+	case <-ctx.Done():
+		return errors.New("game over")
+	}
 }
