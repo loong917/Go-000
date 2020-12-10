@@ -3,10 +3,9 @@ package main
 import (
 	"fmt"
 
-	"loong.me/gopher/controller/hello"
-
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	config "loong.me/gopher/controller"
 )
 
 func main() {
@@ -16,7 +15,7 @@ func main() {
 	router.Use(cors.Default())
 
 	// 测试服务
-	hello.Routes(router)
+	config.Routes(router)
 
 	// 监听端口
 	var port string = "8080"
